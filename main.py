@@ -414,8 +414,26 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             is_member = False
 
         if not is_member:
-            # بعت رسالة مع صورة القناة
-            await send_subscribe_alert(context.bot, user_id, ch_id)
+            try:
+                chat = await context.bot.get_chat(ch_id)
+                ch_name = chat.title or "القناة"
+                ch_link = f"t.me/{chat.username}" if chat.username else ""
+                alert_text = (
+                    f"❌ مش مشترك!
+
+"
+                    f"لازم تشترك الأول في
+"
+                    f"📢 {ch_name}
+"
+                    f"🔗 {ch_link}
+
+"
+                    f"اشترك وبعدين اضغط القلب تاني ❤️"
+                )
+            except Exception:
+                alert_text = "❌ لازم تشترك في القناة الأول!"
+            await query.answer(alert_text, show_alert=True)
             return
 
         if key not in DB["hearts"]:
