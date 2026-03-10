@@ -325,7 +325,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query   = update.callback_query
     user_id = query.from_user.id
     data    = query.data
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     if data == "go_home":
         await update_panel(query, *panel_home())
