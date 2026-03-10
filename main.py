@@ -18,8 +18,6 @@ from telegram.error import BadRequest
 BOT_TOKEN = "8527096422:AAHW8Jalk8AAooi-pK9tupXnMCNPPQPMMUA"
 ADMIN_ID  = 1923931101
 DATA_FILE = "bot_data.json"
-
-# ← رابط الـ GIF اللي هيظهر دايماً مع لوحة التحكم
 PANEL_GIF = "https://i.postimg.cc/wxV3PspQ/1756574872401.gif"
 # ══════════════════════════════════════════
 
@@ -28,9 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 # ──────────────────────────────────────────
-#  قاعدة البيانات (JSON)
+#  قاعدة البيانات
 # ──────────────────────────────────────────
-
 def load_data() -> dict:
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r", encoding="utf-8") as f:
@@ -39,8 +36,7 @@ def load_data() -> dict:
         "channels": {
             "قناة FY_TF": {"id": -1001716446682, "username": "@FY_TF"}
         },
-        "hearts": {},
-        "gif_file_id": None   # بنحفظ file_id بعد أول إرسال للـ GIF
+        "hearts": {}
     }
 
 def save_data():
@@ -49,12 +45,11 @@ def save_data():
 
 DB = load_data()
 
+# {user_id: panel_message_id}  ← رسالة واحدة بس فيها GIF + أزرار
+admin_panel_msg: dict[int, int] = {}
+
 # رسائل الأدمن المنتظرة للنشر
 pending: dict[int, dict] = {}
-
-# {user_id: {"gif_msg_id": int, "text_msg_id": int}}
-# الرسالتين اللي بتكونوا لوحة التحكم (GIF + نص+أزرار)
-admin_panel: dict[int, dict] = {}
 
 # وضع إدخال نصي لإضافة قناة
 input_state: dict[int, dict] = {}
@@ -63,7 +58,6 @@ input_state: dict[int, dict] = {}
 # ──────────────────────────────────────────
 #  مساعدات القلب
 # ──────────────────────────────────────────
-
 def hkey(ch_id: int, msg_id: int) -> str:
     return f"{ch_id}:{msg_id}"
 
@@ -78,9 +72,8 @@ def heart_kb(ch_id: int, msg_id: int) -> InlineKeyboardMarkup:
 
 
 # ──────────────────────────────────────────
-#  نصوص + كيبوردات لوحة التحكم
+#  نصوص لوحة التحكم
 # ──────────────────────────────────────────
-
 def panel_home() -> tuple[str, InlineKeyboardMarkup]:
     ch_count     = len(DB["channels"])
     total_hearts = sum(len(v) for v in DB["hearts"].values())
@@ -98,7 +91,6 @@ def panel_home() -> tuple[str, InlineKeyboardMarkup]:
     ])
     return text, kb
 
-
 def panel_channels() -> tuple[str, InlineKeyboardMarkup]:
     if not DB["channels"]:
         text = "📢 *إدارة القنوات*\n━━━━━━━━━━━━━━━━━━━━\n\n⚠️ لا توجد قنوات مضافة بعد."
@@ -115,15 +107,13 @@ def panel_channels() -> tuple[str, InlineKeyboardMarkup]:
     ])
     return text, kb
 
-
 def panel_delete_list() -> tuple[str, InlineKeyboardMarkup]:
     buttons = [
         [InlineKeyboardButton(f"🗑️ {name}  ({info['username']})", callback_data=f"ch_del_{info['id']}")]
         for name, info in DB["channels"].items()
     ]
     buttons.append([InlineKeyboardButton("🔙 رجوع", callback_data="go_channels")])
-    return "🗑️ *اختار القناة اللي تحذفها:*", InlineKeyboardMarkup(buttons)
-
+    return "🗑️ *اختار القناة اللي تحذفها:*\n━━━━━━━━━━━━━━━━━━━━", InlineKeyboardMarkup(buttons)
 
 def panel_publish() -> tuple[str, InlineKeyboardMarkup]:
     if not DB["channels"]:
@@ -140,7 +130,6 @@ def panel_publish() -> tuple[str, InlineKeyboardMarkup]:
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 الرئيسية", callback_data="go_home")]])
     return text, kb
 
-
 def panel_select_channel(admin_msg_id: int) -> tuple[str, InlineKeyboardMarkup]:
     buttons = [
         [InlineKeyboardButton(f"📢 {name}", callback_data=f"pub_{admin_msg_id}_{info['id']}")]
@@ -151,10 +140,9 @@ def panel_select_channel(admin_msg_id: int) -> tuple[str, InlineKeyboardMarkup]:
     buttons.append([InlineKeyboardButton("❌ إلغاء", callback_data=f"pub_cancel_{admin_msg_id}")])
     return "📤 *اختار القناة للنشر:*\n━━━━━━━━━━━━━━━━━━━━", InlineKeyboardMarkup(buttons)
 
-
 def panel_stats() -> tuple[str, InlineKeyboardMarkup]:
     if not DB["hearts"]:
-        text = "📊 *الإحصائيات*\n━━━━━━━━━━━━━━━━━━━━\n\n لا توجد بيانات بعد."
+        text = "📊 *الإحصائيات*\n━━━━━━━━━━━━━━━━━━━━\n\nلا توجد بيانات بعد."
     else:
         lines = []
         for key, users in DB["hearts"].items():
@@ -165,22 +153,11 @@ def panel_stats() -> tuple[str, InlineKeyboardMarkup]:
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 الرئيسية", callback_data="go_home")]])
     return text, kb
 
-
 def panel_add_step(step: int) -> tuple[str, InlineKeyboardMarkup]:
     steps = {
-        1: (
-            "➕ *إضافة قناة جديدة*\n━━━━━━━━━━━━━━━━━━━━\n\n"
-            "الخطوة 1️⃣ من 3️⃣\n\nابعتلي *اسم القناة*\n\nمثال: `قناة الترفيه`"
-        ),
-        2: (
-            "➕ *إضافة قناة جديدة*\n━━━━━━━━━━━━━━━━━━━━\n\n"
-            "الخطوة 2️⃣ من 3️⃣\n\nابعتلي *ID القناة*\n\n"
-            "📌 فوّرد أي رسالة من القناة لـ @userinfobot\n\nمثال: `-1001234567890`"
-        ),
-        3: (
-            "➕ *إضافة قناة جديدة*\n━━━━━━━━━━━━━━━━━━━━\n\n"
-            "الخطوة 3️⃣ من 3️⃣\n\nابعتلي *يوزرنيم القناة*\n\nمثال: `@my_channel`"
-        ),
+        1: "➕ *إضافة قناة جديدة*\n━━━━━━━━━━━━━━━━━━━━\n\nالخطوة 1️⃣ من 3️⃣\n\nابعتلي *اسم القناة*\n\nمثال: `قناة الترفيه`",
+        2: "➕ *إضافة قناة جديدة*\n━━━━━━━━━━━━━━━━━━━━\n\nالخطوة 2️⃣ من 3️⃣\n\nابعتلي *ID القناة*\n\n📌 فوّرد أي رسالة من القناة لـ @userinfobot\n\nمثال: `-1001234567890`",
+        3: "➕ *إضافة قناة جديدة*\n━━━━━━━━━━━━━━━━━━━━\n\nالخطوة 3️⃣ من 3️⃣\n\nابعتلي *يوزرنيم القناة*\n\nمثال: `@my_channel`",
     }
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="go_channels")]])
     return steps[step], kb
@@ -188,60 +165,64 @@ def panel_add_step(step: int) -> tuple[str, InlineKeyboardMarkup]:
 
 # ──────────────────────────────────────────
 #  إرسال / تحديث لوحة التحكم
-#  (GIF ثابتة + رسالة نص+أزرار تتحدث)
+#  رسالة واحدة فيها GIF + caption + أزرار
 # ──────────────────────────────────────────
+async def send_panel(context: ContextTypes.DEFAULT_TYPE, chat_id: int, text: str, kb: InlineKeyboardMarkup):
+    """
+    أول مرة: ابعت animation مع caption وأزرار.
+    بعد كده: حدّث الـ caption والأزرار بس (edit_message_caption).
+    """
+    msg_id = admin_panel_msg.get(chat_id)
 
-async def send_panel(context, chat_id: int, text: str, kb: InlineKeyboardMarkup):
-    """أول مرة: ابعت GIF + رسالة نص. بعد كده: حدّث رسالة النص بس."""
-    panel = admin_panel.get(chat_id, {})
-
-    # لو مفيش panel أو اتمسح → ابعت كل حاجة من الأول
-    if not panel.get("text_msg_id"):
-        # GIF
+    if msg_id:
+        # حاول تحدث الرسالة الموجودة
         try:
-            gif_msg = await context.bot.send_animation(
+            await context.bot.edit_message_caption(
                 chat_id=chat_id,
-                animation=PANEL_GIF,
-                caption="🎛️ *لوحة التحكم*",
-                parse_mode="Markdown"
+                message_id=msg_id,
+                caption=text,
+                parse_mode="Markdown",
+                reply_markup=kb
             )
-            gif_id = gif_msg.message_id
-        except Exception as e:
-            logger.error(f"خطأ إرسال GIF: {e}")
-            gif_id = None
+            return
+        except BadRequest as e:
+            logger.warning(f"edit_message_caption فشل: {e}")
+            # لو فشل امسح وابعت جديد
+            try:
+                await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+            except Exception:
+                pass
+            admin_panel_msg.pop(chat_id, None)
 
-        # نص + أزرار
-        txt_msg = await context.bot.send_message(
-            chat_id=chat_id, text=text,
-            parse_mode="Markdown", reply_markup=kb
+    # ابعت GIF جديدة مع caption وأزرار
+    try:
+        msg = await context.bot.send_animation(
+            chat_id=chat_id,
+            animation=PANEL_GIF,
+            caption=text,
+            parse_mode="Markdown",
+            reply_markup=kb
         )
-        admin_panel[chat_id] = {"gif_msg_id": gif_id, "text_msg_id": txt_msg.message_id}
-
-    else:
-        # حدّث رسالة النص بس (GIF تفضل زي ما هي)
-        try:
-            await context.bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=panel["text_msg_id"],
-                text=text, parse_mode="Markdown", reply_markup=kb
-            )
-        except BadRequest:
-            # لو اتمسحت، ابعت جديدة
-            txt_msg = await context.bot.send_message(
-                chat_id=chat_id, text=text,
-                parse_mode="Markdown", reply_markup=kb
-            )
-            admin_panel[chat_id]["text_msg_id"] = txt_msg.message_id
+        admin_panel_msg[chat_id] = msg.message_id
+    except Exception as e:
+        logger.error(f"send_animation فشل: {e}")
+        # fallback: رسالة نص عادية
+        msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            parse_mode="Markdown",
+            reply_markup=kb
+        )
+        admin_panel_msg[chat_id] = msg.message_id
 
 
 # ──────────────────────────────────────────
 #  نشر رسالة في قناة
 # ──────────────────────────────────────────
-
 async def publish_to_channel(bot, ch_id: int, info: dict):
-    cap = info.get("caption", "")
-    sent = None
+    cap   = info.get("caption", "")
     dummy = heart_kb(ch_id, 0)
+    sent  = None
 
     if   info["type"] == "text":     sent = await bot.send_message(ch_id, info["text"], reply_markup=dummy)
     elif info["type"] == "photo":    sent = await bot.send_photo(ch_id, info["file_id"], caption=cap, reply_markup=dummy)
@@ -264,7 +245,6 @@ async def publish_to_channel(bot, ch_id: int, info: dict):
 # ──────────────────────────────────────────
 #  /start
 # ──────────────────────────────────────────
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
@@ -273,12 +253,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"👋 أهلاً!\n📢 قنواتنا: {chs}")
         return
 
-    # امسح الـ panel القديم لو موجود
-    old = admin_panel.pop(user_id, {})
-    for mid in [old.get("gif_msg_id"), old.get("text_msg_id")]:
-        if mid:
-            try: await context.bot.delete_message(user_id, mid)
-            except: pass
+    # امسح الرسالة القديمة
+    old_id = admin_panel_msg.pop(user_id, None)
+    if old_id:
+        try: await context.bot.delete_message(user_id, old_id)
+        except: pass
 
     # احذف رسالة /start
     try: await update.message.delete()
@@ -290,13 +269,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ──────────────────────────────────────────
 #  معالجة الأزرار
 # ──────────────────────────────────────────
-
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query   = update.callback_query
     user_id = query.from_user.id
     data    = query.data
     await query.answer()
 
+    # ── تنقل ──
     if data == "go_home":
         await send_panel(context, user_id, *panel_home())
 
@@ -310,6 +289,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "go_stats":
         await send_panel(context, user_id, *panel_stats())
 
+    # ── إدارة القنوات ──
     elif data == "ch_add":
         input_state[user_id] = {"step": "name", "data": {}}
         await send_panel(context, user_id, *panel_add_step(1))
@@ -328,6 +308,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             save_data()
         await send_panel(context, user_id, *panel_channels())
 
+    # ── نشر ──
     elif data.startswith("pub_cancel_"):
         admin_msg_id = int(data.split("_")[2])
         pending.pop(admin_msg_id, None)
@@ -362,7 +343,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"✅ *تم النشر في {ch_name}!*\n━━━━━━━━━━━━━━━━━━━━\n\n🆔 ID: `{mid}`"
                     if mid else f"❌ فشل النشر في {ch_name}."
                 )
-
             kb = InlineKeyboardMarkup([[InlineKeyboardButton("🏠 الرئيسية", callback_data="go_home")]])
             await send_panel(context, user_id, result_text, kb)
 
@@ -410,7 +390,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ──────────────────────────────────────────
 #  استقبال رسائل الأدمن
 # ──────────────────────────────────────────
-
 async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     msg     = update.message
@@ -435,11 +414,8 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
                 state["step"] = "username"
                 await send_panel(context, user_id, *panel_add_step(3))
             except ValueError:
-                err = (
-                    "➕ *إضافة قناة جديدة*\n━━━━━━━━━━━━━━━━━━━━\n\n"
-                    "❌ الـ ID لازم يكون رقم!\nمثال: `-1001234567890`\n\nحاول تاني:"
-                )
-                kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="go_channels")]])
+                err = "➕ *إضافة قناة جديدة*\n━━━━━━━━━━━━━━━━━━━━\n\n❌ الـ ID لازم يكون رقم!\nمثال: `-1001234567890`\n\nحاول تاني:"
+                kb  = InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="go_channels")]])
                 await send_panel(context, user_id, err, kb)
 
         elif state["step"] == "username":
@@ -466,22 +442,14 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
     # ── وضع النشر ──
     info = {"type": None, "file_id": None, "text": None, "caption": None}
 
-    if msg.text:
-        info.update({"type": "text", "text": msg.text})
-    elif msg.photo:
-        info.update({"type": "photo",    "file_id": msg.photo[-1].file_id, "caption": msg.caption or ""})
-    elif msg.video:
-        info.update({"type": "video",    "file_id": msg.video.file_id,     "caption": msg.caption or ""})
-    elif msg.document:
-        info.update({"type": "document", "file_id": msg.document.file_id,  "caption": msg.caption or ""})
-    elif msg.audio:
-        info.update({"type": "audio",    "file_id": msg.audio.file_id,     "caption": msg.caption or ""})
-    elif msg.voice:
-        info.update({"type": "voice",    "file_id": msg.voice.file_id,     "caption": msg.caption or ""})
-    elif msg.sticker:
-        info.update({"type": "sticker",  "file_id": msg.sticker.file_id})
-    else:
-        return
+    if   msg.text:     info.update({"type": "text",     "text": msg.text})
+    elif msg.photo:    info.update({"type": "photo",    "file_id": msg.photo[-1].file_id, "caption": msg.caption or ""})
+    elif msg.video:    info.update({"type": "video",    "file_id": msg.video.file_id,     "caption": msg.caption or ""})
+    elif msg.document: info.update({"type": "document", "file_id": msg.document.file_id,  "caption": msg.caption or ""})
+    elif msg.audio:    info.update({"type": "audio",    "file_id": msg.audio.file_id,     "caption": msg.caption or ""})
+    elif msg.voice:    info.update({"type": "voice",    "file_id": msg.voice.file_id,     "caption": msg.caption or ""})
+    elif msg.sticker:  info.update({"type": "sticker",  "file_id": msg.sticker.file_id})
+    else: return
 
     pending[msg.message_id] = info
     try: await msg.delete()
@@ -493,21 +461,14 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
 # ──────────────────────────────────────────
 #  تشغيل
 # ──────────────────────────────────────────
-
 def main():
     print("🤖 جاري تشغيل البوت...")
     app = Application.builder().token(BOT_TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(
-        filters.User(ADMIN_ID) & ~filters.COMMAND,
-        handle_admin_message
-    ))
+    app.add_handler(MessageHandler(filters.User(ADMIN_ID) & ~filters.COMMAND, handle_admin_message))
     app.add_handler(CallbackQueryHandler(button_callback))
-
     print("✅ البوت شغال!")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
-
 
 if __name__ == "__main__":
     main()
