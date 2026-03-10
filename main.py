@@ -422,12 +422,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_member:
             try:
                 chat = await context.bot.get_chat(ch_id)
-                ch_name = chat.title or "القناة"
+                ch_name = (chat.title or "القناة")[:30]
                 ch_link = "t.me/" + chat.username if chat.username else ""
                 nl = chr(10)
-                alert_text = "❌ مش مشترك!" + nl + nl + "لازم تشترك الأول في" + nl + "📢 " + ch_name + nl + "🔗 " + ch_link + nl + nl + "اشترك وبعدين اضغط القلب تاني ❤️"
+                alert_text = ("❌ مش مشترك!" + nl + "📢 " + ch_name + nl + "🔗 " + ch_link + nl + "اشترك وبعدين اضغط ❤️")[:200]
             except Exception:
-                alert_text = "❌ لازم تشترك في القناة الأول!"
+                alert_text = "❌ اشترك في القناة الأول!"
             await query.answer(alert_text, show_alert=True)
             return
 
