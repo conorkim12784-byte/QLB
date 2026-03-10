@@ -583,12 +583,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except TelegramError as e:
                 logger.warning(f"send heart DM to {user_id}: {e}")
             try:
-                await query.answer(f"❤️ تم! : {count}", show_alert=False)
+                await query.answer(f"صلي على النبي {count}", show_alert=False)
             except TelegramError:
                 pass
         else:
             try:
-                await query.answer(f"❤️ شكراً! : {count}", show_alert=True)
+                await query.answer(f"صلي على النبي {count}", show_alert=True)
             except TelegramError:
                 pass
 
