@@ -22,6 +22,9 @@ PANEL_GIF = "https://i.postimg.cc/wxV3PspQ/1756574872401.gif"
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# استخدام HTML بدل Markdown لتجنب مشاكل الـ parsing
+PARSE_MODE = "HTML"
+
 
 # ──────────────────────────────────────────
 #  قاعدة البيانات
@@ -43,13 +46,8 @@ def save_data():
 
 DB = load_data()
 
-# {user_id: message_id}  ← ID رسالة لوحة التحكم
 admin_panel_msg: dict[int, int] = {}
-
-# رسائل الأدمن المنتظرة للنشر
 pending: dict[int, dict] = {}
-
-# وضع إدخال نصي لإضافة قناة
 input_state: dict[int, dict] = {}
 
 
@@ -70,16 +68,16 @@ def heart_kb(ch_id: int, msg_id: int) -> InlineKeyboardMarkup:
 
 
 # ──────────────────────────────────────────
-#  نصوص + كيبوردات لوحة التحكم
+#  نصوص لوحة التحكم (HTML بدل Markdown)
 # ──────────────────────────────────────────
 def panel_home() -> tuple[str, InlineKeyboardMarkup]:
     ch_count     = len(DB["channels"])
     total_hearts = sum(len(v) for v in DB["hearts"].values())
     text = (
-        "🤖 *لوحة تحكم البوت*\n"
+        "🤖 <b>لوحة تحكم البوت</b>\n"
         "━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"📢 القنوات المضافة: *{ch_count}*\n"
-        f"❤️ إجمالي القلوب: *{total_hearts}*\n\n"
+        f"📢 القنوات المضافة: <b>{ch_count}</b>\n"
+        f"❤️ إجمالي القلوب: <b>{total_hearts}</b>\n\n"
         "اختار من القائمة 👇"
     )
     kb = InlineKeyboardMarkup([
@@ -91,13 +89,13 @@ def panel_home() -> tuple[str, InlineKeyboardMarkup]:
 
 def panel_channels() -> tuple[str, InlineKeyboardMarkup]:
     if not DB["channels"]:
-        text = "📢 *إدارة القنوات*\n━━━━━━━━━━━━━━━━━━━━\n\n⚠️ لا توجد قنوات مضافة بعد."
+        text = "📢 <b>إدارة القنوات</b>\n━━━━━━━━━━━━━━━━━━━━\n\n⚠️ لا توجد قنوات مضافة بعد."
     else:
         lines = "\n".join(
-            f"  {i+1}. *{name}*  {info['username']}"
+            f"  {i+1}. <b>{name}</b>  {info['username']}"
             for i, (name, info) in enumerate(DB["channels"].items())
         )
-        text = f"📢 *إدارة القنوات*\n━━━━━━━━━━━━━━━━━━━━\n\n{lines}\n"
+        text = f"📢 <b>إدارة القنوات</b>\n━━━━━━━━━━━━━━━━━━━━\n\n{lines}"
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("➕ إضافة قناة",  callback_data="ch_add")],
         [InlineKeyboardButton("🗑️ حذف قناة",   callback_data="ch_del_list")],
@@ -111,18 +109,18 @@ def panel_delete_list() -> tuple[str, InlineKeyboardMarkup]:
         for name, info in DB["channels"].items()
     ]
     buttons.append([InlineKeyboardButton("🔙 رجوع", callback_data="go_channels")])
-    return "🗑️ *اختار القناة اللي تحذفها:*\n━━━━━━━━━━━━━━━━━━━━", InlineKeyboardMarkup(buttons)
+    return "🗑️ <b>اختار القناة اللي تحذفها:</b>\n━━━━━━━━━━━━━━━━━━━━", InlineKeyboardMarkup(buttons)
 
 def panel_publish() -> tuple[str, InlineKeyboardMarkup]:
     if not DB["channels"]:
-        text = "📤 *نشر رسالة*\n━━━━━━━━━━━━━━━━━━━━\n\n⚠️ لازم تضيف قناة الأول!"
+        text = "📤 <b>نشر رسالة</b>\n━━━━━━━━━━━━━━━━━━━━\n\n⚠️ لازم تضيف قناة الأول!"
         kb   = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 الرئيسية", callback_data="go_home")]])
         return text, kb
     text = (
-        "📤 *نشر رسالة جديدة*\n"
+        "📤 <b>نشر رسالة جديدة</b>\n"
         "━━━━━━━━━━━━━━━━━━━━\n\n"
         "ابعتلي الرسالة اللي عاوز تنشرها\n"
-        "_(نص / صورة / فيديو / ملف / صوت)_\n\n"
+        "<i>نص / صورة / فيديو / ملف / صوت</i>\n\n"
         "⏳ في انتظار رسالتك..."
     )
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 الرئيسية", callback_data="go_home")]])
@@ -136,74 +134,82 @@ def panel_select_channel(admin_msg_id: int) -> tuple[str, InlineKeyboardMarkup]:
     if len(DB["channels"]) > 1:
         buttons.append([InlineKeyboardButton("📣 نشر في كل القنوات", callback_data=f"pub_{admin_msg_id}_ALL")])
     buttons.append([InlineKeyboardButton("❌ إلغاء", callback_data=f"pub_cancel_{admin_msg_id}")])
-    return "📤 *اختار القناة للنشر:*\n━━━━━━━━━━━━━━━━━━━━", InlineKeyboardMarkup(buttons)
+    return "📤 <b>اختار القناة للنشر:</b>\n━━━━━━━━━━━━━━━━━━━━", InlineKeyboardMarkup(buttons)
 
 def panel_stats() -> tuple[str, InlineKeyboardMarkup]:
     if not DB["hearts"]:
-        text = "📊 *الإحصائيات*\n━━━━━━━━━━━━━━━━━━━━\n\nلا توجد بيانات بعد."
+        text = "📊 <b>الإحصائيات</b>\n━━━━━━━━━━━━━━━━━━━━\n\nلا توجد بيانات بعد."
     else:
         lines = []
         for key, users in DB["hearts"].items():
             ch_id, msg_id = key.split(":")
             ch_name = next((n for n, i in DB["channels"].items() if str(i["id"]) == ch_id), ch_id)
-            lines.append(f"  • *{ch_name}* | رسالة `{msg_id}` ← ❤️ {len(users)}")
-        text = "📊 *الإحصائيات*\n━━━━━━━━━━━━━━━━━━━━\n\n" + "\n".join(lines)
+            lines.append(f"  • <b>{ch_name}</b>  رسالة {msg_id}  ❤️ {len(users)}")
+        text = "📊 <b>الإحصائيات</b>\n━━━━━━━━━━━━━━━━━━━━\n\n" + "\n".join(lines)
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 الرئيسية", callback_data="go_home")]])
     return text, kb
 
-def panel_add_step(step: int) -> tuple[str, InlineKeyboardMarkup]:
+def panel_add_step(step: int, name: str = "") -> tuple[str, InlineKeyboardMarkup]:
     steps = {
-        1: "➕ *إضافة قناة جديدة*\n━━━━━━━━━━━━━━━━━━━━\n\nالخطوة 1️⃣ من 3️⃣\n\nابعتلي *اسم القناة*\n\nمثال: `قناة الترفيه`",
-        2: "➕ *إضافة قناة جديدة*\n━━━━━━━━━━━━━━━━━━━━\n\nالخطوة 2️⃣ من 3️⃣\n\nابعتلي *ID القناة*\n\n📌 فوّرد أي رسالة من القناة لـ @userinfobot\n\nمثال: `-1001234567890`",
-        3: "➕ *إضافة قناة جديدة*\n━━━━━━━━━━━━━━━━━━━━\n\nالخطوة 3️⃣ من 3️⃣\n\nابعتلي *يوزرنيم القناة*\n\nمثال: `@my_channel`",
+        1: "➕ <b>إضافة قناة جديدة</b>\n━━━━━━━━━━━━━━━━━━━━\n\nالخطوة 1 من 3\n\nابعتلي <b>اسم القناة</b>\n\nمثال: قناة الترفيه",
+        2: "➕ <b>إضافة قناة جديدة</b>\n━━━━━━━━━━━━━━━━━━━━\n\nالخطوة 2 من 3\n\nابعتلي <b>ID القناة</b>\n\n📌 فوّرد أي رسالة من القناة لـ @userinfobot\n\nمثال: -1001234567890",
+        3: "➕ <b>إضافة قناة جديدة</b>\n━━━━━━━━━━━━━━━━━━━━\n\nالخطوة 3 من 3\n\nابعتلي <b>يوزرنيم القناة</b>\n\nمثال: @my_channel",
     }
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="go_channels")]])
     return steps[step], kb
 
 
 # ──────────────────────────────────────────
-#  تحديث لوحة التحكم
-#  ← المفتاح: نستخدم message_id من الـ query مباشرةً
+#  تحديث / إرسال لوحة التحكم
 # ──────────────────────────────────────────
 async def update_panel(query, text: str, kb: InlineKeyboardMarkup):
-    """
-    يحدث caption + أزرار الرسالة الحالية مباشرةً عن طريق query.message
-    من غير ما يمسحها أو يبعت جديدة.
-    """
+    """يحدث الرسالة الحالية مباشرةً عن طريق query"""
     try:
         await query.edit_message_caption(
             caption=text,
-            parse_mode="Markdown",
+            parse_mode=PARSE_MODE,
             reply_markup=kb
         )
-    except BadRequest as e:
-        logger.warning(f"edit_message_caption: {e}")
-    except TelegramError as e:
-        logger.error(f"TelegramError: {e}")
+    except (BadRequest, TelegramError) as e:
+        logger.warning(f"update_panel error: {e}")
 
 async def send_new_panel(context: ContextTypes.DEFAULT_TYPE, chat_id: int, text: str, kb: InlineKeyboardMarkup):
-    """
-    يبعت رسالة لوحة تحكم جديدة (GIF + caption + أزرار).
-    يُستخدم فقط عند /start أو لو الرسالة اتمسحت.
-    """
+    """يبعت لوحة تحكم جديدة (GIF + caption + أزرار)"""
     try:
         msg = await context.bot.send_animation(
             chat_id=chat_id,
             animation=PANEL_GIF,
             caption=text,
-            parse_mode="Markdown",
+            parse_mode=PARSE_MODE,
             reply_markup=kb
         )
         admin_panel_msg[chat_id] = msg.message_id
     except Exception as e:
-        logger.error(f"send_animation فشل: {e}")
+        logger.error(f"send_animation error: {e}")
         msg = await context.bot.send_message(
             chat_id=chat_id,
             text=text,
-            parse_mode="Markdown",
+            parse_mode=PARSE_MODE,
             reply_markup=kb
         )
         admin_panel_msg[chat_id] = msg.message_id
+
+async def edit_panel_by_id(context, chat_id: int, text: str, kb: InlineKeyboardMarkup):
+    """يحدث لوحة التحكم عن طريق message_id المحفوظ"""
+    msg_id = admin_panel_msg.get(chat_id)
+    if msg_id:
+        try:
+            await context.bot.edit_message_caption(
+                chat_id=chat_id,
+                message_id=msg_id,
+                caption=text,
+                parse_mode=PARSE_MODE,
+                reply_markup=kb
+            )
+            return
+        except Exception as e:
+            logger.warning(f"edit_panel_by_id error: {e}")
+    await send_new_panel(context, chat_id, text, kb)
 
 
 # ──────────────────────────────────────────
@@ -233,7 +239,7 @@ async def publish_to_channel(bot, ch_id: int, info: dict):
 
 
 # ──────────────────────────────────────────
-#  /start  ← يبعت لوحة التحكم جديدة
+#  /start
 # ──────────────────────────────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -257,7 +263,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ──────────────────────────────────────────
 #  معالجة الأزرار
-#  ← الفرق الجوهري: نستخدم update_panel(query, ...) مش send_panel
 # ──────────────────────────────────────────
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query   = update.callback_query
@@ -265,7 +270,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data    = query.data
     await query.answer()
 
-    # ── تنقل بين الصفحات ──
+    # ── تنقل ──
     if data == "go_home":
         await update_panel(query, *panel_home())
 
@@ -321,16 +326,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 results = []
                 for name, ch in DB["channels"].items():
                     mid = await publish_to_channel(context.bot, ch["id"], info)
-                    results.append(f"{'✅' if mid else '❌'} *{name}*" + (f" — ID `{mid}`" if mid else ""))
+                    results.append(("✅ " if mid else "❌ ") + name + (f"  ID: {mid}" if mid else ""))
                 del pending[admin_msg_id]
-                result_text = "✅ *تم النشر بنجاح!*\n━━━━━━━━━━━━━━━━━━━━\n\n" + "\n".join(results)
+                result_text = "✅ <b>تم النشر بنجاح!</b>\n━━━━━━━━━━━━━━━━━━━━\n\n" + "\n".join(results)
             else:
                 ch_id   = int(target)
                 ch_name = next((n for n, i in DB["channels"].items() if i["id"] == ch_id), "القناة")
                 mid     = await publish_to_channel(context.bot, ch_id, info)
                 del pending[admin_msg_id]
                 result_text = (
-                    f"✅ *تم النشر في {ch_name}!*\n━━━━━━━━━━━━━━━━━━━━\n\n🆔 ID: `{mid}`"
+                    f"✅ <b>تم النشر في {ch_name}!</b>\n━━━━━━━━━━━━━━━━━━━━\n\nID الرسالة: {mid}"
                     if mid else f"❌ فشل النشر في {ch_name}."
                 )
             kb = InlineKeyboardMarkup([[InlineKeyboardButton("🏠 الرئيسية", callback_data="go_home")]])
@@ -339,9 +344,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.error(e)
             kb = InlineKeyboardMarkup([[InlineKeyboardButton("🏠 الرئيسية", callback_data="go_home")]])
-            await update_panel(query, f"❌ خطأ:\n`{e}`", kb)
+            await update_panel(query, f"❌ خطأ: {e}", kb)
 
-    # ── زر القلب في القناة ──
+    # ── زر القلب ──
     elif data.startswith("heart_"):
         parts  = data.split("_")
         ch_id  = int(parts[1])
@@ -393,37 +398,20 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         try: await msg.delete()
         except: pass
 
-        panel_msg_id = admin_panel_msg.get(user_id)
-
-        async def edit_panel(caption: str, kb: InlineKeyboardMarkup):
-            if panel_msg_id:
-                try:
-                    await context.bot.edit_message_caption(
-                        chat_id=user_id,
-                        message_id=panel_msg_id,
-                        caption=caption,
-                        parse_mode="Markdown",
-                        reply_markup=kb
-                    )
-                    return
-                except Exception:
-                    pass
-            await send_new_panel(context, user_id, caption, kb)
-
         if state["step"] == "name":
             state["data"]["name"] = text
             state["step"] = "id"
-            await edit_panel(*panel_add_step(2))
+            await edit_panel_by_id(context, user_id, *panel_add_step(2))
 
         elif state["step"] == "id":
             try:
                 state["data"]["id"] = int(text)
                 state["step"] = "username"
-                await edit_panel(*panel_add_step(3))
+                await edit_panel_by_id(context, user_id, *panel_add_step(3))
             except ValueError:
-                err = "➕ *إضافة قناة جديدة*\n━━━━━━━━━━━━━━━━━━━━\n\n❌ الـ ID لازم يكون رقم!\nمثال: `-1001234567890`\n\nحاول تاني:"
+                err = "➕ <b>إضافة قناة جديدة</b>\n━━━━━━━━━━━━━━━━━━━━\n\n❌ الـ ID لازم يكون رقم!\nمثال: -1001234567890\n\nحاول تاني:"
                 kb  = InlineKeyboardMarkup([[InlineKeyboardButton("❌ إلغاء", callback_data="go_channels")]])
-                await edit_panel(err, kb)
+                await edit_panel_by_id(context, user_id, err, kb)
 
         elif state["step"] == "username":
             username = text if text.startswith("@") else f"@{text}"
@@ -431,18 +419,19 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
             DB["channels"][d["name"]] = {"id": d["id"], "username": username}
             save_data()
             del input_state[user_id]
+
             success = (
-                "✅ *تمت إضافة القناة بنجاح!*\n━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"📢 الاسم: *{d['name']}*\n"
+                "✅ <b>تمت إضافة القناة بنجاح!</b>\n━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"📢 الاسم: <b>{d['name']}</b>\n"
                 f"🔗 يوزرنيم: {username}\n"
-                f"🆔 ID: `{d['id']}`\n\n"
+                f"🆔 ID: {d['id']}\n\n"
                 "⚠️ تأكد إن البوت أدمن في القناة!"
             )
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("📢 إدارة القنوات", callback_data="go_channels")],
-                [InlineKeyboardButton("🏠 الرئيسية",     callback_data="go_home")],
+                [InlineKeyboardButton("🏠 الرئيسية",      callback_data="go_home")],
             ])
-            await edit_panel(success, kb)
+            await edit_panel_by_id(context, user_id, success, kb)
         return
 
     # ── وضع النشر ──
@@ -461,22 +450,7 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
     try: await msg.delete()
     except: pass
 
-    # تحديث لوحة التحكم باختيار القناة
-    panel_msg_id = admin_panel_msg.get(user_id)
-    text, kb     = panel_select_channel(msg.message_id)
-    if panel_msg_id:
-        try:
-            await context.bot.edit_message_caption(
-                chat_id=user_id,
-                message_id=panel_msg_id,
-                caption=text,
-                parse_mode="Markdown",
-                reply_markup=kb
-            )
-            return
-        except Exception:
-            pass
-    await send_new_panel(context, user_id, text, kb)
+    await edit_panel_by_id(context, user_id, *panel_select_channel(msg.message_id))
 
 
 # ──────────────────────────────────────────
