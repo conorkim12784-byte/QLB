@@ -417,20 +417,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 chat = await context.bot.get_chat(ch_id)
                 ch_name = chat.title or "القناة"
-                ch_link = f"t.me/{chat.username}" if chat.username else ""
-                alert_text = (
-                    f"❌ مش مشترك!
-
-"
-                    f"لازم تشترك الأول في
-"
-                    f"📢 {ch_name}
-"
-                    f"🔗 {ch_link}
-
-"
-                    f"اشترك وبعدين اضغط القلب تاني ❤️"
-                )
+                ch_link = "t.me/" + chat.username if chat.username else ""
+                nl = chr(10)
+                alert_text = "❌ مش مشترك!" + nl + nl + "لازم تشترك الأول في" + nl + "📢 " + ch_name + nl + "🔗 " + ch_link + nl + nl + "اشترك وبعدين اضغط القلب تاني ❤️"
             except Exception:
                 alert_text = "❌ لازم تشترك في القناة الأول!"
             await query.answer(alert_text, show_alert=True)
